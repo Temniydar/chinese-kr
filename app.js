@@ -1,5 +1,5 @@
 // Chinese Exam Preparation App Logic
-// Handles audio playback (Mobile-friendly TTS + Web Audio synthesis), ticket rendering, quizzes, exam simulator, errors bank
+// Handles audio playback (TTS + Web Audio synthesis), ticket rendering, quizzes, exam simulator, errors bank
 
 // State Management
 const AppState = {
@@ -34,50 +34,11 @@ const AppState = {
 };
 
 // ==========================================
-// 1. Mobile-Ready Audio Engine & Synthesizer
+// 1. Audio Engine & Synthesizer
 // ==========================================
 const AudioEngine = {
   audioObj: null,
   audioCtx: null,
-  unlocked: false,
-  zhVoice: null,
-
-  init() {
-    if (window.speechSynthesis) {
-      const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0) {
-          this.zhVoice =
-            voices.find(v => v.lang === 'zh-CN' || v.lang === 'zh_CN') ||
-            voices.find(v => v.lang.toLowerCase().startsWith('zh')) ||
-            voices.find(v => /chinese|mandarin|普通话|中文/i.test(v.name));
-        }
-      };
-      loadVoices();
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-
-    const unlockHandler = () => {
-      if (this.unlocked) return;
-      this.initAudioContext();
-      if (this.audioCtx && this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume().catch(() => {});
-      }
-      if (window.speechSynthesis) {
-        try {
-          const silentUtterance = new SpeechSynthesisUtterance('');
-          silentUtterance.volume = 0;
-          window.speechSynthesis.speak(silentUtterance);
-        } catch (e) {}
-      }
-      this.unlocked = true;
-      document.removeEventListener('touchstart', unlockHandler);
-      document.removeEventListener('click', unlockHandler);
-    };
-
-    document.addEventListener('touchstart', unlockHandler, { passive: true });
-    document.addEventListener('click', unlockHandler, { passive: true });
-  },
 
   initAudioContext() {
     if (!this.audioCtx) {
@@ -86,93 +47,66 @@ const AudioEngine = {
         this.audioCtx = new AudioContext();
       }
     }
-    if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume().catch(() => {});
-    }
   },
 
   speak(text, pinyinFallback, toneNumber) {
-    this.initAudioContext();
-
     if (this.audioObj) {
-      try {
-        this.audioObj.pause();
-        this.audioObj.src = '';
-      } catch (e) {}
+      this.audioObj.pause();
       this.audioObj = null;
     }
-
-    const targetText = (text && text !== '—') ? text : pinyinFallback;
-    if (!targetText) return;
-
     if (window.speechSynthesis) {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(targetText);
-        utterance.lang = 'zh-CN';
-        utterance.rate = AppState.audioSpeed;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-
-        if (!this.zhVoice) {
-          const voices = window.speechSynthesis.getVoices();
-          this.zhVoice =
-            voices.find(v => v.lang === 'zh-CN' || v.lang === 'zh_CN') ||
-            voices.find(v => v.lang.toLowerCase().startsWith('zh'));
-        }
-        if (this.zhVoice) {
-          utterance.voice = this.zhVoice;
-        }
-
-        let speechStarted = false;
-        utterance.onstart = () => {
-          speechStarted = true;
-        };
-
-        utterance.onerror = () => {
-          this.fallbackAudioStream(targetText, toneNumber);
-        };
-
-        window.speechSynthesis.speak(utterance);
-
-        setTimeout(() => {
-          if (!speechStarted && !window.speechSynthesis.speaking) {
-            this.fallbackAudioStream(targetText, toneNumber);
-          }
-        }, 450);
-
-        return;
-      } catch (e) {}
+      window.speechSynthesis.cancel();
     }
 
-    this.fallbackAudioStream(targetText, toneNumber);
-  },
-
-  fallbackAudioStream(targetText, toneNumber) {
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(targetText)}&type=2`;
-    const audio = new Audio();
-    audio.setAttribute('playsinline', 'true');
-    audio.preload = 'auto';
-    audio.src = url;
+    // Attempt 1: Google Translate TTS API for natural authentic Mandarin pronunciation
+    const targetText = text || pinyinFallback;
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=${encodeURIComponent(targetText)}`;
+    
+    const audio = new Audio(url);
     audio.playbackRate = AppState.audioSpeed;
     this.audioObj = audio;
 
     const playPromise = audio.play();
     if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        if (typeof toneNumber === 'number') {
-          this.playToneCurve(toneNumber);
-        } else {
-          this.playToneCurve(1);
-        }
+      playPromise.catch((err) => {
+        // Fallback 1: Web Speech API (speechSynthesis)
+        AudioEngine.fallbackSpeech(targetText);
       });
     }
+
+    // Also briefly trigger tone curve synthesizer if toneNumber provided
+    if (toneNumber && toneNumber >= 1 && toneNumber <= 4) {
+      // AudioEngine.playToneCurve(toneNumber);
+    }
+  },
+
+  fallbackSpeech(text) {
+    if (!window.speechSynthesis) {
+      this.playToneCurve(1);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-CN';
+    utterance.rate = AppState.audioSpeed;
+
+    // Pick Chinese voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const zhVoice = voices.find(v => v.lang.startsWith('zh') || v.lang.includes('CN') || v.name.includes('Chinese'));
+    if (zhVoice) {
+      utterance.voice = zhVoice;
+    }
+
+    window.speechSynthesis.speak(utterance);
   },
 
   playToneCurve(tone) {
     try {
       this.initAudioContext();
       if (!this.audioCtx) return;
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
 
       const now = this.audioCtx.currentTime;
       const osc = this.audioCtx.createOscillator();
@@ -182,21 +116,24 @@ const AudioEngine = {
       osc.connect(gain);
       gain.connect(this.audioCtx.destination);
 
-      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.setValueAtTime(0.2, now);
 
       if (tone === 1) {
+        // High flat (55) ~ 440Hz
         osc.frequency.setValueAtTime(440, now);
         osc.frequency.setValueAtTime(440, now + 0.35);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
         osc.start(now);
         osc.stop(now + 0.4);
       } else if (tone === 2) {
+        // Rising (35) ~ 330Hz -> 450Hz
         osc.frequency.setValueAtTime(330, now);
         osc.frequency.exponentialRampToValueAtTime(460, now + 0.35);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
         osc.start(now);
         osc.stop(now + 0.4);
       } else if (tone === 3) {
+        // Dipping (214) ~ 300Hz -> 220Hz -> 380Hz
         osc.frequency.setValueAtTime(300, now);
         osc.frequency.exponentialRampToValueAtTime(220, now + 0.18);
         osc.frequency.exponentialRampToValueAtTime(380, now + 0.42);
@@ -204,14 +141,16 @@ const AudioEngine = {
         osc.start(now);
         osc.stop(now + 0.48);
       } else if (tone === 4) {
+        // Falling (51) ~ 460Hz -> 220Hz
         osc.frequency.setValueAtTime(460, now);
         osc.frequency.exponentialRampToValueAtTime(220, now + 0.3);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.33);
         osc.start(now);
         osc.stop(now + 0.35);
       } else {
+        // Neutral (short dot)
         osc.frequency.setValueAtTime(320, now);
-        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.setValueAtTime(0.15, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         osc.start(now);
         osc.stop(now + 0.14);
@@ -244,6 +183,7 @@ const ErrorsBank = {
   },
 
   add(item) {
+    // Avoid duplicate IDs
     const exists = AppState.errors.some(e => e.id === item.id);
     if (!exists) {
       AppState.errors.push({ ...item, addedAt: Date.now() });
@@ -315,8 +255,9 @@ function initNavigation() {
     });
   });
 
+  // Ticket Selector Pills
   const pillsContainer = document.getElementById('ticketPills');
-  if (pillsContainer && typeof TICKETS_DATA !== 'undefined') {
+  if (pillsContainer) {
     pillsContainer.innerHTML = '';
     TICKETS_DATA.forEach(ticket => {
       const pill = document.createElement('button');
@@ -332,8 +273,8 @@ function initNavigation() {
     });
   }
 
+  // Random Ticket Button
   document.getElementById('randomTicketBtn')?.addEventListener('click', () => {
-    if (typeof TICKETS_DATA === 'undefined') return;
     const randomId = Math.floor(Math.random() * TICKETS_DATA.length) + 1;
     AppState.currentTicketId = randomId;
     document.querySelectorAll('.ticket-pill').forEach(p => {
@@ -343,6 +284,7 @@ function initNavigation() {
     ErrorsBank.showToast(`Выбран случайный Билет ${randomId}!`);
   });
 
+  // Audio Speed Control Toggle
   const speedBtn = document.getElementById('speedToggleBtn');
   if (speedBtn) {
     speedBtn.addEventListener('click', () => {
@@ -352,11 +294,12 @@ function initNavigation() {
     });
   }
 
+  // Sound Test Button
   document.getElementById('soundTestBtn')?.addEventListener('click', () => {
-    AudioEngine.speak('你好，祝你考试顺利！', 'nǐ hǎo', 3);
-    ErrorsBank.showToast('Проверка звука: 你好！');
+    AudioEngine.speak('你好，祝你考试顺利！', 'nǐ hǎo');
   });
 
+  // Open Errors Tab from Badge
   document.getElementById('errorCountBadge')?.addEventListener('click', () => {
     switchTab('errors');
   });
@@ -371,6 +314,7 @@ function switchTab(tabId) {
     p.classList.toggle('active', p.id === `pane-${tabId}`);
   });
 
+  // Load specific tab data
   if (tabId === 'tickets') {
     renderTicket(AppState.currentTicketId);
   } else if (tabId === 'quiz') {
@@ -390,7 +334,6 @@ function switchTab(tabId) {
 // 4. Ticket View Rendering
 // ==========================================
 function renderTicket(ticketId) {
-  if (typeof TICKETS_DATA === 'undefined') return;
   const ticket = TICKETS_DATA.find(t => t.id === ticketId);
   if (!ticket) return;
 
@@ -401,7 +344,7 @@ function renderTicket(ticketId) {
   const task1Grid = document.getElementById('task1Grid');
   if (task1Grid) {
     task1Grid.innerHTML = '';
-    ticket.task1.forEach((syl) => {
+    ticket.task1.forEach((syl, index) => {
       const card = document.createElement('div');
       card.className = 'syllable-card';
       card.innerHTML = `
@@ -425,6 +368,7 @@ function renderTicket(ticketId) {
     });
   }
 
+  // Play All Syllables Sequentially Button
   const playAllBtn = document.getElementById('playAllTask1Btn');
   if (playAllBtn) {
     playAllBtn.onclick = () => playSequentialSyllables(ticket.task1);
@@ -495,6 +439,7 @@ function renderTicket(ticketId) {
         </div>
       `;
 
+      // Event listeners
       const revealBtn = card.querySelector('.tr-reveal-btn');
       const ansBox = card.querySelector('.tr-answer-box');
       revealBtn.addEventListener('click', (e) => {
@@ -586,19 +531,25 @@ function loadNextQuizQuestion() {
   const mode = AppState.quizSubmode;
 
   if (mode === 'tones') {
+    // Mode A: Audio quiz - Guess the syllable / tone
     renderToneQuiz(container);
   } else if (mode === 'sandhi') {
+    // Mode B: Tone sandhi rules quiz
     renderSandhiQuiz(container);
   } else if (mode === 'builder') {
+    // Mode C: Sentence constructor
     renderSentenceBuilderQuiz(container);
   }
 }
 
+// Quiz Mode A: Audio & Tone
 function renderToneQuiz(container) {
+  // Pick random syllable from all tickets
   const allSyllables = [];
   TICKETS_DATA.forEach(t => t.task1.forEach(s => allSyllables.push(s)));
   const target = allSyllables[Math.floor(Math.random() * allSyllables.length)];
 
+  // Generate 4 choices
   const choices = [target];
   while (choices.length < 4) {
     const candidate = allSyllables[Math.floor(Math.random() * allSyllables.length)];
@@ -606,6 +557,7 @@ function renderToneQuiz(container) {
       choices.push(candidate);
     }
   }
+  // Shuffle choices
   choices.sort(() => Math.random() - 0.5);
 
   container.innerHTML = `
@@ -614,7 +566,7 @@ function renderToneQuiz(container) {
       <button class="quiz-audio-trigger" id="quizPlayBtn">🔊 Послушать слог</button>
       
       <div class="quiz-options-grid">
-        ${choices.map((c) => `
+        ${choices.map((c, i) => `
           <button class="quiz-opt-btn" data-pinyin="${c.pinyin}">${c.pinyin}</button>
         `).join('')}
       </div>
@@ -626,6 +578,9 @@ function renderToneQuiz(container) {
 
   const playBtn = container.querySelector('#quizPlayBtn');
   playBtn.onclick = () => AudioEngine.speak(target.hanzi || target.pinyin, target.pinyin, target.tone);
+  
+  // Auto play on start
+  setTimeout(() => playBtn.click(), 200);
 
   const feedback = container.querySelector('#quizFeedback');
   const nextBtn = container.querySelector('#quizNextBtn');
@@ -648,6 +603,7 @@ function renderToneQuiz(container) {
         feedback.className = 'quiz-feedback show wrong';
         feedback.innerHTML = `❌ Ошибка! Правильный ответ: <strong>${target.pinyin}</strong> (${target.tone} тон).<br>${target.desc}`;
         
+        // Auto add to errors
         ErrorsBank.add({
           id: `syl-${target.pinyin}`,
           type: 'syllable',
@@ -659,16 +615,12 @@ function renderToneQuiz(container) {
       }
 
       nextBtn.style.display = 'block';
-      nextBtn.onclick = () => {
-        loadNextQuizQuestion();
-        setTimeout(() => {
-          document.getElementById('quizPlayBtn')?.click();
-        }, 50);
-      };
+      nextBtn.onclick = () => loadNextQuizQuestion();
     };
   });
 }
 
+// Quiz Mode B: Tone Sandhi
 function renderSandhiQuiz(container) {
   const allSandhi = [];
   TICKETS_DATA.forEach(t => t.task2.forEach(s => allSandhi.push(s)));
@@ -754,11 +706,13 @@ function renderSandhiQuiz(container) {
   });
 }
 
+// Quiz Mode C: Sentence Builder
 function renderSentenceBuilderQuiz(container) {
   const allSentences = [];
   TICKETS_DATA.forEach(t => t.task3.forEach(s => allSentences.push(s)));
   const target = allSentences[Math.floor(Math.random() * allSentences.length)];
 
+  // Slice target words
   const words = [...target.words];
   const shuffledWords = [...words].sort(() => Math.random() - 0.5);
 
@@ -809,6 +763,7 @@ function renderSentenceBuilderQuiz(container) {
       tile.style.borderColor = '#3b82f6';
       tile.textContent = wordObj.zh;
       tile.addEventListener('click', () => {
+        // Return back to pool
         AppState.builderSelectedWords.splice(i, 1);
         const origBtn = pool.querySelector(`[data-idx="${wordObj.origIdx}"]`);
         if (origBtn) origBtn.classList.remove('used');
@@ -840,6 +795,7 @@ function renderSentenceBuilderQuiz(container) {
 
   container.querySelector('#builderCheckBtn').onclick = () => {
     const constructed = AppState.builderSelectedWords.map(w => w.zh).join('');
+    // Remove punctuation from target.hanzi for fuzzy check
     const cleanTarget = target.hanzi.replace(/[，。？—（）\s]/g, '');
     const cleanConstructed = constructed.replace(/[，。？—（）\s]/g, '');
 
@@ -875,6 +831,8 @@ function renderSentenceBuilderQuiz(container) {
 function initSimulator() {
   const container = document.getElementById('simulatorContainer');
   if (!container) return;
+
+  // Populate ticket selector in simulator
   renderSimulatorView();
 }
 
@@ -992,6 +950,7 @@ function renderSimulatorView() {
     </div>
   `;
 
+  // Simulator Event Handlers
   const select = document.getElementById('simTicketSelect');
   if (select) {
     select.onchange = () => {
@@ -1009,6 +968,7 @@ function renderSimulatorView() {
     };
   }
 
+  // Timer Handlers
   const timerDisplay = document.getElementById('simTimerDisplay');
   const startTimerBtn = document.getElementById('simStartTimerBtn');
   const resetTimerBtn = document.getElementById('simResetTimerBtn');
@@ -1052,6 +1012,7 @@ function renderSimulatorView() {
     };
   }
 
+  // Calculate Result
   const calcBtn = document.getElementById('simCalculateBtn');
   const gradeResult = document.getElementById('simGradeResult');
   if (calcBtn) {
@@ -1153,7 +1114,7 @@ function renderErrorsBank() {
 // ==========================================
 function renderTheory() {
   const container = document.getElementById('theoryContainer');
-  if (!container || typeof THEORY_DATA === 'undefined') return;
+  if (!container) return;
 
   container.innerHTML = `
     <div style="margin-bottom:24px;">
@@ -1208,11 +1169,11 @@ function renderTheory() {
 }
 
 // ==========================================
-// 9. Syllable Warm-Up Generator
+// 9. Syllable Warm-Up Generator (from user's HTML)
 // ==========================================
 function initWarmup() {
   const container = document.getElementById('warmupContainer');
-  if (!container || typeof ALL_SYLLABLES === 'undefined') return;
+  if (!container) return;
 
   function shuffle(array) {
     const a = [...array];
@@ -1307,7 +1268,6 @@ function initWarmup() {
 // 10. Bootstrap Application
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-  AudioEngine.init();
   ErrorsBank.load();
   initNavigation();
   renderTicket(1);
