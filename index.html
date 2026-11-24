@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🇨🇳 Китайский язык — Экспресс-подготовка к КР (Билеты 1–12)</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🇨🇳</text></svg>">
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">中</div>
+        <div class="brand-title">
+          <h1>
+            Китайский язык — Тренажер КР
+            <span class="badge">Билеты 1–12</span>
+          </h1>
+          <p>Озвучка слогов • Модуляция тонов • Перевод • Работа над ошибками</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <button class="audio-speed-btn" id="speedToggleBtn" title="Переключить скорость воспроизведения речи">
+          ⚡ Скорость: 1.0x
+        </button>
+        <button class="sound-test-btn" id="soundTestBtn" title="Проверить звучание китайской речи">
+          🔊 Тест звука
+        </button>
+        <button class="error-counter-badge" id="errorCountBadge" title="Открыть банк ошибок">
+          ❌ Ошибок: 0
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="tabs-nav">
+    <div class="tabs-container">
+      <button class="tab-btn active" data-target="tickets">📖 1. Урок & Билеты (1–12)</button>
+      <button class="tab-btn" data-target="quiz">🎯 2. Интерактивная Проверка</button>
+      <button class="tab-btn" data-target="simulator">⏱️ 3. Симулятор Экзамена</button>
+      <button class="tab-btn" data-target="errors">❌ 4. Работа над ошибками</button>
+      <button class="tab-btn" data-target="theory">💡 5. Шпаргалка и Теория</button>
+      <button class="tab-btn" data-target="warmup">⚡ 6. Разминка слогов</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- Tone Contour Visualizer Bar -->
+    <div class="tones-chart-bar" title="Нажми на любой тон, чтобы услышать его звуковой контур!">
+      <div class="tone-chart-item" onclick="AudioEngine.speak('妈', 'mā', 1); AudioEngine.playToneCurve(1);">
+        <div class="tone-chart-curve" style="color:var(--t1-color);">ˉ 55</div>
+        <div style="font-weight:700; color:var(--t1-color);">1-й тон (mā)</div>
+        <div class="tone-chart-name">Высокий ровный 🔊</div>
+      </div>
+      <div class="tone-chart-item" onclick="AudioEngine.speak('麻', 'má', 2); AudioEngine.playToneCurve(2);">
+        <div class="tone-chart-curve" style="color:var(--t2-color);">ˊ 35</div>
+        <div style="font-weight:700; color:var(--t2-color);">2-й тон (má)</div>
+        <div class="tone-chart-name">Восходящий 🔊</div>
+      </div>
+      <div class="tone-chart-item" onclick="AudioEngine.speak('马', 'mǎ', 3); AudioEngine.playToneCurve(3);">
+        <div class="tone-chart-curve" style="color:var(--t3-color);">ˇ 214</div>
+        <div style="font-weight:700; color:var(--t3-color);">3-й тон (mǎ)</div>
+        <div class="tone-chart-name">Нисходяще-восходящий 🔊</div>
+      </div>
+      <div class="tone-chart-item" onclick="AudioEngine.speak('骂', 'mà', 4); AudioEngine.playToneCurve(4);">
+        <div class="tone-chart-curve" style="color:var(--t4-color);">ˋ 51</div>
+        <div style="font-weight:700; color:var(--t4-color);">4-й тон (mà)</div>
+        <div class="tone-chart-name">Резко падающий 🔊</div>
+      </div>
+      <div class="tone-chart-item" onclick="AudioEngine.speak('吗', 'ma', 0); AudioEngine.playToneCurve(0);">
+        <div class="tone-chart-curve" style="color:var(--t0-color);">• light</div>
+        <div style="font-weight:700; color:var(--t0-color);">Нулевой (ma)</div>
+        <div class="tone-chart-name">Легкий короткий 🔊</div>
+      </div>
+    </div>
+
+    <!-- PANE 1: Tickets Explorer -->
+    <section class="view-pane active" id="pane-tickets">
+      <!-- Ticket Picker Bar -->
+      <div class="ticket-selector-bar">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-weight:700; font-size:0.95rem; color:#cbd5e1;">Выбери билет:</span>
+          <div class="ticket-pills" id="ticketPills"></div>
+        </div>
+        <div class="ticket-actions">
+          <button class="btn-sm" id="randomTicketBtn">🎲 Случайный билет</button>
+        </div>
+      </div>
+
+      <!-- Current Ticket Banner -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="font-size:1.6rem; font-weight:800; color:#fff;" id="ticketTitle">Билет № 1</h2>
+        <span style="font-size:0.85rem; color:var(--text-muted);">Всего заданий: 3 • Максимум: 24 балла</span>
+      </div>
+
+      <!-- Task 1 -->
+      <div class="section-box">
+        <div class="section-header">
+          <div class="section-title">
+            <span>Задание 1: Чтение пиньиня с правильными тонами, инициалями и финалями</span>
+            <span class="points-badge">12 баллов (по 1 б.)</span>
+          </div>
+          <button class="btn-sm btn-primary" id="playAllTask1Btn">▶️ Озвучить все слоги по очереди</button>
+        </div>
+        <p class="section-desc">Кликните по карточке слога, чтобы услышать его правильное звучание и тон. Тренируйтесь читать вслух перед нажатием!</p>
+        <div class="syllables-grid" id="task1Grid"></div>
+      </div>
+
+      <!-- Task 2 -->
+      <div class="section-box">
+        <div class="section-header">
+          <div class="section-title">
+            <span>Задание 2: Соблюдение правил сочетания тонов</span>
+            <span class="points-badge">6 баллов (по 1 б.)</span>
+          </div>
+          <span style="font-size:0.8rem; color:#94a3b8;">Правила: 3+3; полутретий 3 + 1,2,4; нулевой тон</span>
+        </div>
+        <p class="section-desc">Нажмите на карточку, чтобы прослушать реальное фонетическое звучание с учётом модуляции тонов:</p>
+        <div class="tone-rules-list" id="task2List"></div>
+      </div>
+
+      <!-- Task 3 -->
+      <div class="section-box">
+        <div class="section-header">
+          <div class="section-title">
+            <span>Задание 3: Устный перевод предложений на китайский язык</span>
+            <span class="points-badge">6 баллов (по 2 б.)</span>
+          </div>
+          <span style="font-size:0.8rem; color:#94a3b8;">С русского на китайский</span>
+        </div>
+        <p class="section-desc">Попробуйте устно перевести фразу вслух, а затем нажмите «Ответ», чтобы проверить себя, послушать речь и разобрать грамматику:</p>
+        <div class="translation-list" id="task3List"></div>
+      </div>
+    </section>
+
+    <!-- PANE 2: Interactive Testing (Урок -> Проверка -> Ошибки) -->
+    <section class="view-pane" id="pane-quiz">
+      <div style="margin-bottom:20px;">
+        <h2 style="font-size:1.4rem; font-weight:700; margin-bottom:6px;">Интерактивный тренажер проверки знаний</h2>
+        <p style="color:var(--text-muted); font-size:0.9rem;">Закрепляйте материал в игровом режиме. Все ошибки автоматически попадают в раздел «Работа над ошибками».</p>
+      </div>
+
+      <div class="quiz-mode-nav">
+        <button class="quiz-subtab-btn active" data-submode="tones">🎵 1. Аудио-диктант (Слоги и тоны)</button>
+        <button class="quiz-subtab-btn" data-submode="sandhi">🔄 2. Блиц-тест правил тонов</button>
+        <button class="quiz-subtab-btn" data-submode="builder">🧩 3. Конструктор предложений</button>
+      </div>
+
+      <div id="quizDynamicArea"></div>
+    </section>
+
+    <!-- PANE 3: Exam Simulator -->
+    <section class="view-pane" id="pane-simulator">
+      <div id="simulatorContainer"></div>
+    </section>
+
+    <!-- PANE 4: Error Review Bank -->
+    <section class="view-pane" id="pane-errors">
+      <div id="errorsContainer"></div>
+    </section>
+
+    <!-- PANE 5: Theory & Cheat Sheet -->
+    <section class="view-pane" id="pane-theory">
+      <div id="theoryContainer"></div>
+    </section>
+
+    <!-- PANE 6: Syllables Warm-up -->
+    <section class="view-pane" id="pane-warmup">
+      <div id="warmupContainer"></div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>Тренажер подготовки к Контрольной Работе по Китайскому Языку (Билеты 1–12).</p>
+    <p style="margin-top:4px; font-size:0.75rem; color:#64748b;">Удачи на контрольной работе! 加油！</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
